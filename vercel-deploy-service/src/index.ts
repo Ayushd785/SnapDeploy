@@ -1,6 +1,6 @@
 
 import { createClient, commandOptions } from "redis";
-import { copyFinalDist, downloadS3Folder } from "./aws";
+import { copyFinalDist, downloadS3Folder, deleteS3Folder } from "./aws";
 import { buildProject } from "./utils";
 import dotenv from "dotenv";
 dotenv.config();
@@ -23,6 +23,8 @@ subscriber.connect();
 const publisher = createClient(redisOptions);
 publisher.on('error', (err) => console.error('Redis Publisher Error:', err.message));
 publisher.connect();
+
+const EXPIRY_SECONDS = 300; // 5 minutes
 
 async function main() {
     console.log("Deploy service worker listening on queue...");
@@ -48,7 +50,19 @@ async function main() {
                 console.log(`[${id}] Step 4: Uploading dist folder to S3...`);
                 await copyFinalDist(id);
                 await publisher.hSet("status", id, "deployed");
-                console.log(`[${id}] === DONE: Successfully deployed ===`);
+                // Set 5-minute active TTL in Redis
+                await publisher.set(`deployment:${id}:ttl`, "active", { EX: EXPIRY_SECONDS });
+                console.log(`[${id}] === DONE: Successfully deployed (Active for ${EXPIRY_SECONDS} seconds) ===`);
+
+                // Schedule background cleanup in 5 minutes
+                setTimeout(async () => {
+                    console.log(`[${id}] 5 minutes lifetime limit reached. Purging deployment...`);
+                    await publisher.hSet("status", id, "expired");
+                    await publisher.del(`deployment:${id}:ttl`);
+                    await deleteS3Folder(`output/${id}`);
+                    await deleteS3Folder(`dist/${id}`);
+                    console.log(`[${id}] Purge complete. Site taken down.`);
+                }, EXPIRY_SECONDS * 1000);
             } else {
                 await publisher.hSet("status", id, "failed");
                 console.log(`[${id}] === DONE: Build FAILED ===`);
@@ -58,4 +72,5 @@ async function main() {
         }
     }
 }
+
 main();

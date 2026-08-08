@@ -97,3 +97,27 @@ const uploadFile = async (fileName: string, localFilePath: string) => {
     }).promise();
     console.log(response);
 }
+
+export async function deleteS3Folder(prefix: string) {
+    try {
+        const listedObjects = await s3.listObjectsV2({
+            Bucket: BUCKET_NAME,
+            Prefix: prefix
+        }).promise();
+
+        if (!listedObjects.Contents || listedObjects.Contents.length === 0) return;
+
+        const deleteParams = {
+            Bucket: BUCKET_NAME,
+            Delete: { Objects: listedObjects.Contents.map(({ Key }) => ({ Key: Key! })) }
+        };
+
+        await s3.deleteObjects(deleteParams).promise();
+        if (listedObjects.IsTruncated) {
+            await deleteS3Folder(prefix);
+        }
+        console.log(`[S3 Purge] Deleted objects under prefix: ${prefix}`);
+    } catch (err) {
+        console.error(`[S3 Purge Error] Failed deleting prefix ${prefix}:`, err);
+    }
+}

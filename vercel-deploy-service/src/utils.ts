@@ -1,9 +1,9 @@
 import { exec, spawn } from "child_process";
 import path from "path";
 
-export function buildProject(id: string) {
+export function buildProject(id: string): Promise<boolean> {
     return new Promise((resolve) => {
-        const child = exec(`cd ${path.join(__dirname, `output/${id}`)} && npm install && npm run build`)
+        const child = exec(`cd ${path.join(__dirname, `output/${id}`)} && npm install --legacy-peer-deps && npm run build`)
 
         child.stdout?.on('data', function(data) {
             console.log('stdout: ' + data);
@@ -13,7 +13,7 @@ export function buildProject(id: string) {
         });
 
         child.on('close', function(code) {
-           resolve("")
+           resolve(code === 0);
         });
 
     })

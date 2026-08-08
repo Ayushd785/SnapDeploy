@@ -27,13 +27,19 @@ app.use(express.json());
 app.post("/deploy", async (req, res) => {
     const repoUrl = req.body.repoUrl;
     const id = generate(); // asd12
+    console.log(`[${id}] Cloning repo: ${repoUrl}`);
     await simpleGit().clone(repoUrl, path.join(__dirname, `output/${id}`));
+    console.log(`[${id}] Clone complete`);
 
     const files = getAllFiles(path.join(__dirname, `output/${id}`));
+    console.log(`[${id}] Found ${files.length} files to upload`);
 
     await Promise.all(files.map(file => uploadFile(file.slice(__dirname.length + 1), file)));
+    console.log(`[${id}] All files uploaded to S3`);
+
     publisher.lPush("build-queue", id);
     publisher.hSet("status", id, "uploaded");
+    console.log(`[${id}] Pushed to build-queue and set status to uploaded`);
 
     res.json({
         id: id

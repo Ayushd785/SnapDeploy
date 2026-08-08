@@ -35,18 +35,23 @@ async function main() {
               );
             // @ts-ignore;
             const id = res.element
-            console.log(`Processing build job for deployment ID: ${id}`);
+            console.log(`[${id}] === START: Processing build job ===`);
             
+            console.log(`[${id}] Step 1: Downloading files from S3...`);
             await downloadS3Folder(`output/${id}`);
+            console.log(`[${id}] Step 2: Download complete. Starting build...`);
+            
             const buildSuccess = await buildProject(id);
+            console.log(`[${id}] Step 3: Build finished. Success: ${buildSuccess}`);
             
             if (buildSuccess) {
+                console.log(`[${id}] Step 4: Uploading dist folder to S3...`);
                 await copyFinalDist(id);
-                publisher.hSet("status", id, "deployed");
-                console.log(`Successfully deployed ${id}`);
+                await publisher.hSet("status", id, "deployed");
+                console.log(`[${id}] === DONE: Successfully deployed ===`);
             } else {
-                publisher.hSet("status", id, "failed");
-                console.log(`Build failed for ${id}`);
+                await publisher.hSet("status", id, "failed");
+                console.log(`[${id}] === DONE: Build FAILED ===`);
             }
         } catch (err) {
             console.error("Error processing build job:", err);

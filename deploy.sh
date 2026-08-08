@@ -3,10 +3,10 @@ set -e
 
 echo "=== Step 1: Stop and delete ALL PM2 processes ==="
 pm2 delete all || true
-pm2 kill || true
 
-echo "=== Step 2: Pull latest code ==="
+echo "=== Step 2: Reset local changes and pull latest code ==="
 cd ~/SnapDeploy
+git reset --hard HEAD
 git pull origin main
 
 echo "=== Step 3: Clean old output and dist folders ==="

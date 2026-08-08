@@ -3,22 +3,22 @@ module.exports = {
     {
       name: "upload-service",
       cwd: "./vercel-upload-service",
-      script: "npx",
-      args: "ts-node src/index.ts",
+      script: "node",
+      args: "dist/index.js",
       node_args: "--max-old-space-size=256",
     },
     {
       name: "deploy-service",
       cwd: "./vercel-deploy-service",
-      script: "npx",
-      args: "ts-node src/index.ts",
+      script: "node",
+      args: "dist/index.js",
       node_args: "--max-old-space-size=256",
     },
     {
       name: "request-handler",
       cwd: "./vercel-request-handler",
-      script: "npx",
-      args: "ts-node src/index.ts",
+      script: "node",
+      args: "dist/index.js",
       node_args: "--max-old-space-size=256",
     }
   ]

@@ -13,21 +13,25 @@ echo "=== Step 3: Clean old output and dist folders ==="
 rm -rf vercel-upload-service/dist vercel-upload-service/src/output
 rm -rf vercel-deploy-service/dist vercel-deploy-service/src/output
 rm -rf vercel-request-handler/dist
+rm -rf frontend/dist
 
 echo "=== Step 4: Install dependencies ==="
 cd ~/SnapDeploy/vercel-upload-service && npm install
 cd ~/SnapDeploy/vercel-deploy-service && npm install
 cd ~/SnapDeploy/vercel-request-handler && npm install
+cd ~/SnapDeploy/frontend && npm install
 
-echo "=== Step 5: Compile TypeScript to dist/ ==="
+echo "=== Step 5: Compile TypeScript & Build Frontend ==="
 cd ~/SnapDeploy/vercel-upload-service && npx tsc
 cd ~/SnapDeploy/vercel-deploy-service && npx tsc
 cd ~/SnapDeploy/vercel-request-handler && npx tsc
+cd ~/SnapDeploy/frontend && npm run build
 
 echo "=== Step 6: Start all services with PM2 ==="
 cd ~/SnapDeploy
 pm2 start ecosystem.config.js
-pm2 start "serve -s frontend/dist -l 5173" --name "frontend"
+cd ~/SnapDeploy/frontend
+pm2 start "serve -s dist -l 5173" --name "frontend"
 
 echo "=== Step 7: Save PM2 process list ==="
 pm2 save

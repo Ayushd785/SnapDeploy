@@ -95,15 +95,21 @@ app.get("/*", async (req, res) => {
     }
 
     try {
-        // Check Redis status and TTL
+        // Check Redis status and creation timestamp
         const status = await redis.hGet("status", id);
-        const isActive = await redis.get(`deployment:${id}:ttl`);
+        const createdAtStr = await redis.get(`deployment:${id}:created_at`);
+        
+        let isExpiredByTime = false;
+        if (createdAtStr) {
+            const createdAt = parseInt(createdAtStr, 10);
+            if (Date.now() - createdAt > 5 * 60 * 1000) {
+                isExpiredByTime = true;
+            }
+        }
 
-        if (status === "expired" || (status === "deployed" && !isActive)) {
-            // Mark as expired in Redis if not already
+        if (status === "expired" || isExpiredByTime) {
             if (status !== "expired") {
                 await redis.hSet("status", id, "expired");
-                // Purge S3 files asynchronously
                 deleteS3Folder(`output/${id}`);
                 deleteS3Folder(`dist/${id}`);
             }

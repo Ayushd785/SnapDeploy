@@ -1,4 +1,3 @@
-
 import { createClient, commandOptions } from "redis";
 import { copyFinalDist, downloadS3Folder, deleteS3Folder } from "./aws";
 import { buildProject } from "./utils";
@@ -50,15 +49,14 @@ async function main() {
                 console.log(`[${id}] Step 4: Uploading dist folder to S3...`);
                 await copyFinalDist(id);
                 await publisher.hSet("status", id, "deployed");
-                // Set 5-minute active TTL in Redis
-                await publisher.set(`deployment:${id}:ttl`, "active", { EX: EXPIRY_SECONDS });
+                // Store deployment creation timestamp in Redis
+                await publisher.set(`deployment:${id}:created_at`, Date.now().toString());
                 console.log(`[${id}] === DONE: Successfully deployed (Active for ${EXPIRY_SECONDS} seconds) ===`);
 
                 // Schedule background cleanup in 5 minutes
                 setTimeout(async () => {
                     console.log(`[${id}] 5 minutes lifetime limit reached. Purging deployment...`);
                     await publisher.hSet("status", id, "expired");
-                    await publisher.del(`deployment:${id}:ttl`);
                     await deleteS3Folder(`output/${id}`);
                     await deleteS3Folder(`dist/${id}`);
                     console.log(`[${id}] Purge complete. Site taken down.`);

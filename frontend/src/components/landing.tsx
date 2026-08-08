@@ -26,13 +26,12 @@ const getRequestHandlerDomain = () => {
   if (import.meta.env.VITE_REQUEST_HANDLER_DOMAIN) {
     return import.meta.env.VITE_REQUEST_HANDLER_DOMAIN;
   }
-  if (typeof window !== "undefined" && window.location.hostname !== "localhost") {
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
     const parts = window.location.hostname.split('.');
     if (parts.length >= 2) {
-      const baseDomain = parts.slice(-2).join('.');
-      return `${baseDomain}:3001`;
+      return parts.slice(-2).join('.');
     }
-    return `${window.location.hostname}:3001`;
+    return window.location.hostname;
   }
   return "localhost:3001";
 };
@@ -47,7 +46,13 @@ export function Landing() {
   const BACKEND_UPLOAD_URL = getBackendUploadUrl();
   const REQUEST_HANDLER_DOMAIN = getRequestHandlerDomain();
 
-  const deployedUrl = `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
+  const isCustomDomain = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+  const protocol = typeof window !== "undefined" ? window.location.protocol : "http:";
+  
+  // Format URL: if custom domain, use protocol://id.domain/index.html (no port 3001). Otherwise localhost:3001
+  const deployedUrl = isCustomDomain 
+    ? `${protocol}//${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html` 
+    : `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
@@ -120,7 +125,7 @@ export function Landing() {
       {failed && <Card className="w-full max-w-md mt-8 border-red-500">
         <CardHeader>
           <CardTitle className="text-xl text-red-500">Build Failed or Connection Error</CardTitle>
-          <CardDescription>Could not complete deployment. Check backend connection and repository status.</CardDescription>
+          <CardDescription>Could not complete deployment. Check repository or backend build logs.</CardDescription>
         </CardHeader>
       </Card>}
     </main>

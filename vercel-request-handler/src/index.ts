@@ -2,6 +2,7 @@ import express from "express";
 import { S3 } from "aws-sdk";
 import { createClient } from "redis";
 import dotenv from "dotenv";
+import mime from "mime-types";
 dotenv.config();
 
 const s3 = new S3({
@@ -83,12 +84,12 @@ function getExpiredHtmlResponse() {
 }
 
 const app = express();
+app.set("trust proxy", true);
 
 app.get("/*", async (req, res) => {
-    // e.g. id.yourdomain.com
-    const host = req.hostname;
-
+    const host = (req.headers.host || req.hostname || "").split(":")[0];
     const id = host.split(".")[0];
+
     let filePath = req.path;
     if (filePath === "/") {
         filePath = "/index.html";
@@ -116,16 +117,19 @@ app.get("/*", async (req, res) => {
             return res.status(410).send(getExpiredHtmlResponse());
         }
 
+        const key = `dist/${id}${filePath}`;
+        console.log(`[Request-Handler] Fetching S3 key: ${key} for host: ${host}`);
+
         const contents = await s3.getObject({
             Bucket: BUCKET_NAME,
-            Key: `dist/${id}${filePath}`
+            Key: key
         }).promise();
         
-        const type = filePath.endsWith("html") ? "text/html" : filePath.endsWith("css") ? "text/css" : filePath.endsWith("svg") ? "image/svg+xml" : filePath.endsWith("png") ? "image/png" : "application/javascript";
+        const type = mime.lookup(filePath) || "application/octet-stream";
         res.set("Content-Type", type);
         res.send(contents.Body);
     } catch (e) {
-        console.error(`Error fetching object from S3 for deployment [${id}]:`, e);
+        console.error(`Error fetching object from S3 for deployment [${id}], path [${filePath}]:`, e);
         res.status(404).send("File not found or deployment in progress.");
     }
 });

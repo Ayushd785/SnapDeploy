@@ -61,14 +61,33 @@ export async function downloadS3Folder(prefix: string) {
 }
 
 export async function copyFinalDist(id: string) {
-    const folderPath = path.join(__dirname, `output/${id}/dist`);
+    const baseDir = path.join(__dirname, `output/${id}`);
+    let folderPath = path.join(baseDir, "dist");
+    
     if (!fs.existsSync(folderPath)) {
-        console.error(`Dist folder does not exist at ${folderPath}`);
-        return;
+        folderPath = path.join(baseDir, "build");
     }
+    if (!fs.existsSync(folderPath)) {
+        folderPath = path.join(baseDir, "out");
+    }
+    if (!fs.existsSync(folderPath)) {
+        if (fs.existsSync(path.join(baseDir, "index.html"))) {
+            folderPath = baseDir;
+        } else {
+            console.error(`[copyFinalDist Error] No build/dist/out directory or index.html found at ${baseDir}`);
+            return;
+        }
+    }
+
+    console.log(`[copyFinalDist] Uploading compiled files from: ${folderPath}`);
     const allFiles = getAllFiles(folderPath);
     const allPromises = allFiles.map(file => {
-        return uploadFile(`dist/${id}/` + file.slice(folderPath.length + 1), file);
+        const relativePath = file.slice(folderPath.length + 1);
+        // Skip node_modules or .git if copying from root
+        if (relativePath.startsWith("node_modules") || relativePath.startsWith(".git")) {
+            return Promise.resolve();
+        }
+        return uploadFile(`dist/${id}/` + relativePath, file);
     });
     await Promise.all(allPromises);
 }

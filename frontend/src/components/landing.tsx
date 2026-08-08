@@ -38,7 +38,7 @@ const getRequestHandlerDomain = () => {
     domain = "localhost:3001";
   }
 
-  // If on a custom domain (non-localhost), strip port numbers like :3001 so HTTPS Nginx proxying works
+  // If on a custom domain (non-localhost), strip port numbers like :3001 so wildcard Nginx routing matches
   if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
     domain = domain.split(':')[0];
   }
@@ -55,14 +55,9 @@ export function Landing() {
 
   const BACKEND_UPLOAD_URL = getBackendUploadUrl();
   const REQUEST_HANDLER_DOMAIN = getRequestHandlerDomain();
-
-  const isCustomDomain = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
-  const protocol = typeof window !== "undefined" ? window.location.protocol : "http:";
   
-  // Format URL: if custom domain, use protocol://id.domain/index.html (no port 3001). Otherwise localhost:3001
-  const deployedUrl = isCustomDomain 
-    ? `${protocol}//${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html` 
-    : `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
+  // Format URL: Deployed preview sites use HTTP (http://<id>.ayushd785.dev) to match Nginx listen 80 wildcard block (*.ayushd785.dev)
+  const deployedUrl = `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">

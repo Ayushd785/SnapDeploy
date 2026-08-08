@@ -23,17 +23,27 @@ const getBackendUploadUrl = () => {
 };
 
 const getRequestHandlerDomain = () => {
-  if (import.meta.env.VITE_REQUEST_HANDLER_DOMAIN) {
-    return import.meta.env.VITE_REQUEST_HANDLER_DOMAIN;
-  }
-  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+  let domain = import.meta.env.VITE_REQUEST_HANDLER_DOMAIN || "";
+  
+  if (!domain && typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
     const parts = window.location.hostname.split('.');
     if (parts.length >= 2) {
-      return parts.slice(-2).join('.');
+      domain = parts.slice(-2).join('.');
+    } else {
+      domain = window.location.hostname;
     }
-    return window.location.hostname;
   }
-  return "localhost:3001";
+  
+  if (!domain) {
+    domain = "localhost:3001";
+  }
+
+  // If on a custom domain (non-localhost), strip port numbers like :3001 so HTTPS Nginx proxying works
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    domain = domain.split(':')[0];
+  }
+  
+  return domain;
 };
 
 export function Landing() {

@@ -3,7 +3,8 @@ import path from "path";
 
 export function buildProject(id: string): Promise<boolean> {
     return new Promise((resolve) => {
-        const child = exec(`cd ${path.join(__dirname, `output/${id}`)} && npm install --legacy-peer-deps && npm run build`)
+        const projectDir = path.join(__dirname, `output/${id}`);
+        const child = exec(`cd ${projectDir} && NODE_ENV=development npm install --legacy-peer-deps && npm run build`)
 
         child.stdout?.on('data', function(data) {
             console.log('stdout: ' + data);
@@ -15,7 +16,5 @@ export function buildProject(id: string): Promise<boolean> {
         child.on('close', function(code) {
            resolve(code === 0);
         });
-
     })
-
 }

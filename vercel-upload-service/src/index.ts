@@ -12,12 +12,21 @@ dotenv.config();
 
 const redisOptions = process.env.REDIS_URL ? {
     url: process.env.REDIS_URL,
-    socket: process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}
+    socket: {
+        ...(process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}),
+        reconnectStrategy: (retries: number) => {
+            console.log(`Redis reconnecting... attempt ${retries}`);
+            return Math.min(retries * 100, 3000);
+        }
+    }
 } : {};
+
 const publisher = createClient(redisOptions);
+publisher.on('error', (err) => console.error('Redis Publisher Error:', err.message));
 publisher.connect();
 
 const subscriber = createClient(redisOptions);
+subscriber.on('error', (err) => console.error('Redis Subscriber Error:', err.message));
 subscriber.connect();
 
 const app = express();

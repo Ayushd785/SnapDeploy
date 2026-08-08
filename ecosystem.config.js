@@ -3,29 +3,23 @@ module.exports = {
     {
       name: "upload-service",
       cwd: "./vercel-upload-service",
-      script: "npm",
-      args: "start",
-      env: {
-        NODE_ENV: "production"
-      }
+      script: "npx",
+      args: "ts-node src/index.ts",
+      node_args: "--max-old-space-size=256",
     },
     {
       name: "deploy-service",
       cwd: "./vercel-deploy-service",
-      script: "npm",
-      args: "start",
-      env: {
-        NODE_ENV: "production"
-      }
+      script: "npx",
+      args: "ts-node src/index.ts",
+      node_args: "--max-old-space-size=256",
     },
     {
       name: "request-handler",
       cwd: "./vercel-request-handler",
-      script: "npm",
-      args: "start",
-      env: {
-        NODE_ENV: "production"
-      }
+      script: "npx",
+      args: "ts-node src/index.ts",
+      node_args: "--max-old-space-size=256",
     }
   ]
 };

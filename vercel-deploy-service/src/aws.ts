@@ -20,44 +20,64 @@ export async function downloadS3Folder(prefix: string) {
         Prefix: prefix
     }).promise();
     
-    // 
     const allPromises = allFiles.Contents?.map(async ({Key}) => {
-        return new Promise(async (resolve) => {
+        return new Promise((resolve) => {
             if (!Key) {
                 resolve("");
                 return;
             }
             const finalOutputPath = path.join(__dirname, Key);
-            const outputFile = fs.createWriteStream(finalOutputPath);
             const dirName = path.dirname(finalOutputPath);
             if (!fs.existsSync(dirName)){
                 fs.mkdirSync(dirName, { recursive: true });
             }
-            s3.getObject({
+            const outputFile = fs.createWriteStream(finalOutputPath);
+            const stream = s3.getObject({
                 Bucket: BUCKET_NAME,
                 Key
-            }).createReadStream().pipe(outputFile).on("finish", () => {
-                resolve("");
-            })
-        })
-    }) || []
-    console.log("awaiting");
+            }).createReadStream();
 
-    await Promise.all(allPromises?.filter(x => x !== undefined));
+            stream.pipe(outputFile);
+
+            stream.on("error", (err) => {
+                console.error(`S3 Download stream error for ${Key}:`, err.message);
+                resolve("");
+            });
+
+            outputFile.on("finish", () => {
+                resolve("");
+            });
+
+            outputFile.on("error", (err) => {
+                console.error(`Write file error for ${finalOutputPath}:`, err.message);
+                resolve("");
+            });
+        })
+    }) || [];
+    
+    console.log(`Downloading ${allPromises.length} files from S3...`);
+    await Promise.all(allPromises);
+    console.log("Download complete.");
 }
 
-export function copyFinalDist(id: string) {
+export async function copyFinalDist(id: string) {
     const folderPath = path.join(__dirname, `output/${id}/dist`);
+    if (!fs.existsSync(folderPath)) {
+        console.error(`Dist folder does not exist at ${folderPath}`);
+        return;
+    }
     const allFiles = getAllFiles(folderPath);
-    allFiles.forEach(file => {
-        uploadFile(`dist/${id}/` + file.slice(folderPath.length + 1), file);
-    })
+    const allPromises = allFiles.map(file => {
+        return uploadFile(`dist/${id}/` + file.slice(folderPath.length + 1), file);
+    });
+    await Promise.all(allPromises);
 }
 
 const getAllFiles = (folderPath: string) => {
     let response: string[] = [];
 
-    const allFilesAndFolders = fs.readdirSync(folderPath);allFilesAndFolders.forEach(file => {
+    const allFilesAndFolders = fs.readdirSync(folderPath);
+    allFilesAndFolders.forEach(file => {
         const fullFilePath = path.join(folderPath, file);
         if (fs.statSync(fullFilePath).isDirectory()) {
             response = response.concat(getAllFiles(fullFilePath))

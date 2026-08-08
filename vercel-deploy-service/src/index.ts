@@ -41,7 +41,7 @@ async function main() {
             const buildSuccess = await buildProject(id);
             
             if (buildSuccess) {
-                copyFinalDist(id);
+                await copyFinalDist(id);
                 publisher.hSet("status", id, "deployed");
                 console.log(`Successfully deployed ${id}`);
             } else {

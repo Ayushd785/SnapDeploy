@@ -17,6 +17,7 @@ export function Landing() {
   const [uploadId, setUploadId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deployed, setDeployed] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const deployedUrl = `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
 
@@ -40,6 +41,8 @@ export function Landing() {
             </div>
             <Button onClick={async () => {
               setUploading(true);
+              setFailed(false);
+              setDeployed(false);
               const res = await axios.post(`${BACKEND_UPLOAD_URL}/deploy`, {
                 repoUrl: repoUrl
               });
@@ -51,6 +54,9 @@ export function Landing() {
                 if (response.data.status === "deployed") {
                   clearInterval(interval);
                   setDeployed(true);
+                } else if (response.data.status === "failed") {
+                  clearInterval(interval);
+                  setFailed(true);
                 }
               }, 3000)
             }} disabled={uploadId !== "" || uploading} className="w-full" type="submit">
@@ -77,6 +83,13 @@ export function Landing() {
           </Button>
         </CardContent>
       </Card>}
+      {failed && <Card className="w-full max-w-md mt-8 border-red-500">
+        <CardHeader>
+          <CardTitle className="text-xl text-red-500">Build Failed</CardTitle>
+          <CardDescription>The project could not be built. Make sure the repository has a valid `npm run build` script that outputs to a `dist/` folder.</CardDescription>
+        </CardHeader>
+      </Card>}
     </main>
   )
 }
+

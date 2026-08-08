@@ -19,15 +19,27 @@ const redisOptions = process.env.REDIS_URL ? {
     socket: {
         ...(process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}),
         reconnectStrategy: (retries: number) => {
-            console.log(`Redis reconnecting... attempt ${retries}`);
             return Math.min(retries * 100, 3000);
         }
     }
 } : {};
 
+let isRedisConnected = false;
 const redis = createClient(redisOptions);
-redis.on('error', (err) => console.error('Redis Client Error:', err.message));
-redis.connect();
+redis.on('error', (err) => {
+    isRedisConnected = false;
+    console.error('Redis Client Error:', err.message);
+});
+redis.on('ready', () => {
+    isRedisConnected = true;
+});
+
+redis.connect().then(() => {
+    isRedisConnected = true;
+}).catch((err) => {
+    isRedisConnected = false;
+    console.error('Redis Connect Error:', err.message);
+});
 
 async function deleteS3Folder(prefix: string) {
     try {
@@ -96,9 +108,17 @@ app.get("/*", async (req, res) => {
     }
 
     try {
-        // Check Redis status and creation timestamp
-        const status = await redis.hGet("status", id);
-        const createdAtStr = await redis.get(`deployment:${id}:created_at`);
+        let status = null;
+        let createdAtStr = null;
+
+        if (isRedisConnected) {
+            try {
+                status = await redis.hGet("status", id);
+                createdAtStr = await redis.get(`deployment:${id}:created_at`);
+            } catch (rErr) {
+                console.error(`[Redis Read Error] for deployment [${id}]:`, rErr);
+            }
+        }
         
         let isExpiredByTime = false;
         if (createdAtStr) {
@@ -109,8 +129,10 @@ app.get("/*", async (req, res) => {
         }
 
         if (status === "expired" || isExpiredByTime) {
-            if (status !== "expired") {
-                await redis.hSet("status", id, "expired");
+            if (status !== "expired" && isRedisConnected) {
+                try {
+                    await redis.hSet("status", id, "expired");
+                } catch (e) {}
                 deleteS3Folder(`output/${id}`);
                 deleteS3Folder(`dist/${id}`);
             }
@@ -128,8 +150,8 @@ app.get("/*", async (req, res) => {
         const type = mime.lookup(filePath) || "application/octet-stream";
         res.set("Content-Type", type);
         res.send(contents.Body);
-    } catch (e) {
-        console.error(`Error fetching object from S3 for deployment [${id}], path [${filePath}]:`, e);
+    } catch (e: any) {
+        console.error(`Error fetching object from S3 for deployment [${id}], path [${filePath}]:`, e?.message || e);
         res.status(404).send("File not found or deployment in progress.");
     }
 });

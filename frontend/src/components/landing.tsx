@@ -9,8 +9,33 @@ import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import axios from "axios"
 
-const BACKEND_UPLOAD_URL = import.meta.env.VITE_BACKEND_UPLOAD_URL || "http://localhost:3000";
-const REQUEST_HANDLER_DOMAIN = import.meta.env.VITE_REQUEST_HANDLER_DOMAIN || "localhost:3001";
+const getBackendUploadUrl = () => {
+  if (import.meta.env.VITE_BACKEND_UPLOAD_URL) {
+    return import.meta.env.VITE_BACKEND_UPLOAD_URL;
+  }
+  if (typeof window !== "undefined") {
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      // Default to relative URL so Nginx reverse proxy routes /deploy and /status cleanly
+      return "";
+    }
+  }
+  return "http://localhost:3000";
+};
+
+const getRequestHandlerDomain = () => {
+  if (import.meta.env.VITE_REQUEST_HANDLER_DOMAIN) {
+    return import.meta.env.VITE_REQUEST_HANDLER_DOMAIN;
+  }
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost") {
+    const parts = window.location.hostname.split('.');
+    if (parts.length >= 2) {
+      const baseDomain = parts.slice(-2).join('.');
+      return `${baseDomain}:3001`;
+    }
+    return `${window.location.hostname}:3001`;
+  }
+  return "localhost:3001";
+};
 
 export function Landing() {
   const [repoUrl, setRepoUrl] = useState("");
@@ -18,6 +43,9 @@ export function Landing() {
   const [uploading, setUploading] = useState(false);
   const [deployed, setDeployed] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  const BACKEND_UPLOAD_URL = getBackendUploadUrl();
+  const REQUEST_HANDLER_DOMAIN = getRequestHandlerDomain();
 
   const deployedUrl = `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
 
@@ -43,22 +71,28 @@ export function Landing() {
               setUploading(true);
               setFailed(false);
               setDeployed(false);
-              const res = await axios.post(`${BACKEND_UPLOAD_URL}/deploy`, {
-                repoUrl: repoUrl
-              });
-              setUploadId(res.data.id);
-              setUploading(false);
-              const interval = setInterval(async () => {
-                const response = await axios.get(`${BACKEND_UPLOAD_URL}/status?id=${res.data.id}`);
+              try {
+                const res = await axios.post(`${BACKEND_UPLOAD_URL}/deploy`, {
+                  repoUrl: repoUrl
+                });
+                setUploadId(res.data.id);
+                setUploading(false);
+                const interval = setInterval(async () => {
+                  const response = await axios.get(`${BACKEND_UPLOAD_URL}/status?id=${res.data.id}`);
 
-                if (response.data.status === "deployed") {
-                  clearInterval(interval);
-                  setDeployed(true);
-                } else if (response.data.status === "failed") {
-                  clearInterval(interval);
-                  setFailed(true);
-                }
-              }, 3000)
+                  if (response.data.status === "deployed") {
+                    clearInterval(interval);
+                    setDeployed(true);
+                  } else if (response.data.status === "failed") {
+                    clearInterval(interval);
+                    setFailed(true);
+                  }
+                }, 3000)
+              } catch (err) {
+                console.error("Deploy request failed:", err);
+                setUploading(false);
+                setFailed(true);
+              }
             }} disabled={uploadId !== "" || uploading} className="w-full" type="submit">
               {uploadId ? `Deploying (${uploadId})` : uploading ? "Uploading..." : "Upload"}
             </Button>
@@ -85,11 +119,10 @@ export function Landing() {
       </Card>}
       {failed && <Card className="w-full max-w-md mt-8 border-red-500">
         <CardHeader>
-          <CardTitle className="text-xl text-red-500">Build Failed</CardTitle>
-          <CardDescription>The project could not be built. Make sure the repository has a valid `npm run build` script that outputs to a `dist/` folder.</CardDescription>
+          <CardTitle className="text-xl text-red-500">Build Failed or Connection Error</CardTitle>
+          <CardDescription>Could not complete deployment. Check backend connection and repository status.</CardDescription>
         </CardHeader>
       </Card>}
     </main>
   )
 }
-

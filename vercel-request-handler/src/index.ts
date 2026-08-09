@@ -19,19 +19,28 @@ const redisOptions = process.env.REDIS_URL ? {
     socket: {
         ...(process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}),
         reconnectStrategy: (retries: number) => {
-            return Math.min(retries * 100, 3000);
+            return Math.min(retries * 500, 30000);
         }
     }
 } : {};
 
 let isRedisConnected = false;
+let redisErrorLogged = false;
 const redis = createClient(redisOptions);
 redis.on('error', (err) => {
     isRedisConnected = false;
-    console.error('Redis Client Error:', err.message);
+    if (!redisErrorLogged) {
+        console.error('Redis Client Error:', err.message || 'Connection refused');
+        console.error('Redis reconnection will continue silently in background...');
+        redisErrorLogged = true;
+    }
 });
 redis.on('ready', () => {
     isRedisConnected = true;
+    if (redisErrorLogged) {
+        console.log('Redis reconnected successfully.');
+        redisErrorLogged = false;
+    }
 });
 
 redis.connect().then(() => {

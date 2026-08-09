@@ -9,18 +9,21 @@ const redisOptions = process.env.REDIS_URL ? {
     socket: {
         ...(process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}),
         reconnectStrategy: (retries: number) => {
-            console.log(`Redis reconnecting... attempt ${retries}`);
-            return Math.min(retries * 100, 3000);
+            if (retries === 1) console.log('Redis disconnected. Reconnecting silently...');
+            return Math.min(retries * 500, 30000);
         }
     }
 } : {};
 
+let subErrorLogged = false, pubErrorLogged = false;
 const subscriber = createClient(redisOptions);
-subscriber.on('error', (err) => console.error('Redis Subscriber Error:', err.message));
+subscriber.on('error', (err) => { if (!subErrorLogged) { console.error('Redis Subscriber Error:', err.message || 'Connection refused'); subErrorLogged = true; } });
+subscriber.on('ready', () => { subErrorLogged = false; });
 subscriber.connect();
 
 const publisher = createClient(redisOptions);
-publisher.on('error', (err) => console.error('Redis Publisher Error:', err.message));
+publisher.on('error', (err) => { if (!pubErrorLogged) { console.error('Redis Publisher Error:', err.message || 'Connection refused'); pubErrorLogged = true; } });
+publisher.on('ready', () => { pubErrorLogged = false; });
 publisher.connect();
 
 const EXPIRY_SECONDS = 300; // 5 minutes

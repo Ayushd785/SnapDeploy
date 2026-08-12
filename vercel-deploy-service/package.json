@@ -20,6 +20,7 @@
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
     "redis": "^4.6.13",
+    "resend": "^6.19.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

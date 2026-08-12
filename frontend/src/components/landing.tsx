@@ -48,6 +48,8 @@ const getRequestHandlerDomain = () => {
 
 export function Landing() {
   const [repoUrl, setRepoUrl] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [uploadId, setUploadId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deployed, setDeployed] = useState(false);
@@ -58,6 +60,9 @@ export function Landing() {
   
   // Format URL: Deployed preview sites use HTTP (http://<id>.ayushd785.dev) to match Nginx listen 80 wildcard block (*.ayushd785.dev)
   const deployedUrl = `http://${uploadId}.${REQUEST_HANDLER_DOMAIN}/index.html`;
+
+  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const emailError = emailTouched && email !== "" && !isValidEmail(email);
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
@@ -71,11 +76,39 @@ export function Landing() {
             <div className="space-y-2">
               <Label htmlFor="github-url">GitHub Repository URL</Label>
               <Input 
+                id="github-url"
                 onChange={(e) => {
                   setRepoUrl(e.target.value);
                 }} 
                 placeholder="https://github.com/username/repo" 
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notification-email">
+                Notification Email{" "}
+                <span style={{ color: "hsl(var(--muted-foreground))", fontWeight: 400, fontSize: "0.8em" }}>
+                  (optional)
+                </span>
+              </Label>
+              <Input 
+                id="notification-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setEmailTouched(true)}
+                placeholder="you@example.com"
+                style={emailError ? { borderColor: "hsl(var(--destructive))" } : {}}
+              />
+              {emailError && (
+                <p style={{ color: "hsl(var(--destructive))", fontSize: "0.8rem", marginTop: "4px" }}>
+                  Please enter a valid email address
+                </p>
+              )}
+              {!emailError && email !== "" && isValidEmail(email) && (
+                <p style={{ color: "#22c55e", fontSize: "0.8rem", marginTop: "4px" }}>
+                  ✓ You'll receive build status notifications at this email
+                </p>
+              )}
             </div>
             <Button onClick={async () => {
               setUploading(true);
@@ -83,7 +116,8 @@ export function Landing() {
               setDeployed(false);
               try {
                 const res = await axios.post(`${BACKEND_UPLOAD_URL}/deploy`, {
-                  repoUrl: repoUrl
+                  repoUrl: repoUrl,
+                  ...(email && isValidEmail(email) ? { email } : {})
                 });
                 setUploadId(res.data.id);
                 setUploading(false);
@@ -103,7 +137,7 @@ export function Landing() {
                 setUploading(false);
                 setFailed(true);
               }
-            }} disabled={uploadId !== "" || uploading} className="w-full" type="submit">
+            }} disabled={uploadId !== "" || uploading || emailError} className="w-full" type="submit">
               {uploadId ? `Deploying (${uploadId})` : uploading ? "Uploading..." : "Upload"}
             </Button>
           </div>

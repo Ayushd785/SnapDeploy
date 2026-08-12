@@ -18,10 +18,12 @@ const redisOptions = process.env.REDIS_URL ? {
     url: process.env.REDIS_URL,
     socket: {
         ...(process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}),
+        keepAlive: 30000,
         reconnectStrategy: (retries: number) => {
             return Math.min(retries * 500, 30000);
         }
-    }
+    },
+    pingInterval: 60000
 } : {};
 
 let isRedisConnected = false;

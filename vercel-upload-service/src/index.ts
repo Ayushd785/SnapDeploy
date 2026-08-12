@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import simpleGit from "simple-git";
@@ -14,11 +13,14 @@ const redisOptions = process.env.REDIS_URL ? {
     url: process.env.REDIS_URL,
     socket: {
         ...(process.env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : {}),
+        keepAlive: 10000,
+        connectTimeout: 10000,
         reconnectStrategy: (retries: number) => {
-            if (retries === 1) console.log('Redis disconnected. Reconnecting silently...');
-            return Math.min(retries * 500, 30000);
+            if (retries === 1) console.log('Redis disconnected. Reconnecting...');
+            return Math.min(retries * 500, 10000);
         }
-    }
+    },
+    pingInterval: 30000
 } : {};
 
 let pubErrorLogged = false, subErrorLogged = false;
@@ -38,6 +40,7 @@ app.use(express.json());
 
 app.post("/deploy", async (req, res) => {
     const repoUrl = req.body.repoUrl;
+    const email = req.body.email;
     const id = generate(); // asd12
     console.log(`[${id}] Cloning repo: ${repoUrl}`);
     await simpleGit().clone(repoUrl, path.join(__dirname, `output/${id}`));
@@ -49,8 +52,12 @@ app.post("/deploy", async (req, res) => {
     await Promise.all(files.map(file => uploadFile(file.slice(__dirname.length + 1), file)));
     console.log(`[${id}] All files uploaded to S3`);
 
-    publisher.lPush("build-queue", id);
-    publisher.hSet("status", id, "uploaded");
+    await publisher.lPush("build-queue", id);
+    await publisher.hSet("status", id, "uploaded");
+    if (email) {
+        await publisher.hSet("deploy-email", id, email);
+        console.log(`[${id}] Email ${email} stored for notifications`);
+    }
     console.log(`[${id}] Pushed to build-queue and set status to uploaded`);
 
     res.json({
